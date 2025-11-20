@@ -3,7 +3,7 @@ server:
 
 spring:
   application:
-    name: Gateway
+    name: gateway
 
   # Redis configuration
   data:
@@ -24,7 +24,7 @@ spring:
       routes:
         # Auth Service Routes
         - id: auth-service
-          uri: lb://auth-service  # lb = load balanced via Eureka
+          uri: lb://AUTHSERVICE  # Eureka service name (uppercase)
           predicates:
             - Path=/api/v1/auth/**
           filters:
@@ -40,7 +40,7 @@ spring:
 
         # Users Service Routes
         - id: users-service
-          uri: lb://users-service
+          uri: lb://USERS-SERVICE  # Eureka service name (uppercase)
           predicates:
             - Path=/api/v1/users/**
           filters:

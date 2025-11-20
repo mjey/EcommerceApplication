@@ -55,7 +55,7 @@ services:
       - "${USER_SERVICE_PORT:-8082}:8082"
     environment:
       # Spring Configuration
-      SPRING_APPLICATION_NAME: ${SPRING_APPLICATION_NAME:-usersService}
+      SPRING_APPLICATION_NAME: ${SPRING_APPLICATION_NAME:-users-service}
       SERVER_PORT: 8082
       
       # Database Configuration

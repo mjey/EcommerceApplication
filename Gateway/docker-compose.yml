@@ -22,7 +22,7 @@ services:
       - "${GATEWAY_PORT:-8080}:8080"
     environment:
       # Spring Configuration
-      SPRING_APPLICATION_NAME: ${SPRING_APPLICATION_NAME:-Gateway}
+      SPRING_APPLICATION_NAME: ${SPRING_APPLICATION_NAME:-gateway}
       SERVER_PORT: 8080
       
       # Redis Configuration

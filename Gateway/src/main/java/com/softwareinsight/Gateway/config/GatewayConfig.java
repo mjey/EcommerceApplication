@@ -31,7 +31,7 @@ public class GatewayConfig {
                                 .addRequestHeader("X-Gateway", "API-Gateway")
                                 .addResponseHeader("X-Response-Time", String.valueOf(System.currentTimeMillis()))
                         )
-                        .uri("lb://auth-service")
+                        .uri("lb://AUTHSERVICE")  // Use Eureka service name
                 )
                 .build();
     }

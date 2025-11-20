@@ -34,8 +34,15 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
     public GatewayFilter apply(Config config) {
         return (exchange, chain) -> {
             ServerHttpRequest request = exchange.getRequest();
+            String path = request.getPath().toString();
 
-            log.debug("Authentication filter executed for path: {}", request.getPath());
+            log.debug("Authentication filter executed for path: {}", path);
+
+            // Skip authentication for public endpoints
+            if (isPublicEndpoint(path)) {
+                log.debug("Public endpoint detected, skipping authentication: {}", path);
+                return chain.filter(exchange);
+            }
 
             // Check if Authorization header exists
             if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
@@ -78,6 +85,18 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
                 return onError(exchange, "Token validation failed", HttpStatus.UNAUTHORIZED);
             }
         };
+    }
+
+    /**
+     * Check if the endpoint is public (doesn't require authentication)
+     */
+    private boolean isPublicEndpoint(String path) {
+        // Define public endpoints that don't require authentication
+        return path.contains("/health") ||
+               path.contains("/actuator") ||
+               path.endsWith("/register") ||
+               path.endsWith("/login") ||
+               path.contains("/public");
     }
 
     /**

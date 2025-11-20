@@ -55,7 +55,7 @@ services:
       - "${AUTH_SERVICE_PORT:-8081}:8081"
     environment:
       # Spring Configuration
-      SPRING_APPLICATION_NAME: ${SPRING_APPLICATION_NAME:-AuthService}
+      SPRING_APPLICATION_NAME: ${SPRING_APPLICATION_NAME:-auth-service}
       SERVER_PORT: 8081
       
       # Database Configuration

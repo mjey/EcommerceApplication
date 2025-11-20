@@ -19,7 +19,7 @@ import java.util.Map;
  * name = service name registered in Eureka
  */
 @FeignClient(
-        name = "auth-service",
+        name = "AUTHSERVICE",  // Must match Eureka registration name
         fallback = AuthServiceFallback.class
 )
 public interface AuthServiceClient {
