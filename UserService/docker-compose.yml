@@ -1,0 +1,117 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: users-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-users_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5434}:5432"
+    volumes:
+      - users_postgres_data:/var/lib/postgresql/data
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-users_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: users-kafka
+    ports:
+      - "${KAFKA_PORT:-9093}:9092"
+    environment:
+      KAFKA_BROKER_ID: 2
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:${KAFKA_PORT:-9093}
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_NODE_ID: 2
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 2@kafka:29093
+      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID:-MkU3OEVBNTcwNTJENDM2Qk}
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  user-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: user-service
+    ports:
+      - "${USER_SERVICE_PORT:-8082}:8082"
+    environment:
+      # Spring Configuration
+      SPRING_APPLICATION_NAME: ${SPRING_APPLICATION_NAME:-usersService}
+      SERVER_PORT: 8082
+      
+      # Database Configuration
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-users_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: ${JPA_DDL_AUTO:-update}
+      SPRING_JPA_SHOW_SQL: ${JPA_SHOW_SQL:-false}
+      
+      # Kafka Configuration
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      
+      # Eureka Configuration
+      EUREKA_CLIENT_ENABLED: true
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: true
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: true
+      EUREKA_CLIENT_FETCH_REGISTRY: true
+      
+      # Feign Configuration
+      FEIGN_CONNECT_TIMEOUT: 5000
+      FEIGN_READ_TIMEOUT: 5000
+      FEIGN_LOGGER_LEVEL: basic
+      FEIGN_CIRCUITBREAKER_ENABLED: true
+      
+      # Actuator Configuration
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,metrics,prometheus,circuitbreakers,circuitbreakerevents
+      MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS: always
+      
+      # Logging
+      LOGGING_LEVEL_ROOT: ${LOG_LEVEL:-INFO}
+      LOGGING_LEVEL_APP: ${LOG_LEVEL_APP:-DEBUG}
+      LOGGING_LEVEL_FEIGN: ${LOG_LEVEL_FEIGN:-DEBUG}
+      
+      # Java Options
+      JAVA_OPTS: ${JAVA_OPTS:--Xmx512m -Xms256m}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8082/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+volumes:
+  users_postgres_data:
+    driver: local
+
+networks:
+  ecommerce-network:
+    name: servicediscovery_ecommerce-network
+    external: true
