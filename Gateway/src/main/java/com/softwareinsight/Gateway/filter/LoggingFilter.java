@@ -12,10 +12,6 @@ import reactor.core.publisher.Mono;
 
 /**
  * Global Logging Filter
- *
- * Logs all incoming requests and outgoing responses
- * Design Pattern: Filter Pattern
- *
  * GlobalFilter applies to all routes automatically
  * Ordered.HIGHEST_PRECEDENCE ensures this runs first
  */

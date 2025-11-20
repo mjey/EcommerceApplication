@@ -15,9 +15,6 @@ import reactor.core.publisher.Mono;
 
 /**
  * Authentication Filter
- *
- * Validates JWT tokens for protected routes
- *
  * Design Patterns:
  * - Filter Pattern: Intercepts requests before routing
  * - Chain of Responsibility: Part of filter chain

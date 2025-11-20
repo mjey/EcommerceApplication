@@ -1,3 +1,213 @@
+server:
+  port: 8080
+
 spring:
   application:
     name: Gateway
+
+  # Redis configuration
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  # Gateway configuration
+  cloud:
+    gateway:
+      # Enable service discovery routing
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+
+      # Route definitions
+      routes:
+        # Auth Service Routes
+        - id: auth-service
+          uri: lb://auth-service  # lb = load balanced via Eureka
+          predicates:
+            - Path=/api/v1/auth/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: authServiceCircuitBreaker
+                fallbackUri: forward:/fallback/auth
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10  # tokens per second
+                redis-rate-limiter.burstCapacity: 20   # max tokens
+                redis-rate-limiter.requestedTokens: 1  # tokens per request
+
+        # Users Service Routes
+        - id: users-service
+          uri: lb://users-service
+          predicates:
+            - Path=/api/v1/users/**
+          filters:
+            - AuthenticationFilter  # Custom filter for JWT validation
+            - name: CircuitBreaker
+              args:
+                name: usersServiceCircuitBreaker
+                fallbackUri: forward:/fallback/users
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+                redis-rate-limiter.requestedTokens: 1
+
+        # TODO: Orders Service Routes
+#        - id: orders-service
+#          uri: lb://orders-service
+#          predicates:
+#            - Path=/api/v1/orders/**
+#          filters:
+#            - AuthenticationFilter
+#            - name: CircuitBreaker
+#              args:
+#                name: ordersServiceCircuitBreaker
+#                fallbackUri: forward:/fallback/orders
+#            - name: RequestRateLimiter
+#              args:
+#                redis-rate-limiter.replenishRate: 15
+#                redis-rate-limiter.burstCapacity: 30
+#                redis-rate-limiter.requestedTokens: 1
+#
+#        # TODO: Payments Service Routes
+#        - id: payments-service
+#          uri: lb://payments-service
+#          predicates:
+#            - Path=/api/v1/payments/**
+#          filters:
+#            - AuthenticationFilter
+#            - name: CircuitBreaker
+#              args:
+#                name: paymentsServiceCircuitBreaker
+#                fallbackUri: forward:/fallback/payments
+#            - name: RequestRateLimiter
+#              args:
+#                redis-rate-limiter.replenishRate: 10
+#                redis-rate-limiter.burstCapacity: 20
+#                redis-rate-limiter.requestedTokens: 1
+
+      # Global CORS configuration
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            exposedHeaders:
+              - Authorization
+            allowCredentials: false
+            maxAge: 3600
+
+      # Default filters applied to all routes
+      default-filters:
+        - name: Retry
+          args:
+            retries: 3
+            statuses: BAD_GATEWAY,GATEWAY_TIMEOUT
+            methods: GET,POST
+            backoff:
+              firstBackoff: 50ms
+              maxBackoff: 500ms
+              factor: 2
+              basedOnPreviousValue: false
+
+# Eureka Client Configuration
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${random.value}
+
+# JWT Configuration (same as Auth Service)
+jwt:
+  secret: ${JWT_SECRET:Hallo123!}
+  expiration: 86400000
+
+# Resilience4j Circuit Breaker Configuration
+resilience4j:
+  circuitbreaker:
+    instances:
+      authServiceCircuitBreaker:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 10s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+        recordExceptions:
+          - org.springframework.web.client.HttpServerErrorException
+          - java.io.IOException
+
+      usersServiceCircuitBreaker:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 10s
+        failureRateThreshold: 50
+
+#      ordersServiceCircuitBreaker:
+#        registerHealthIndicator: true
+#        slidingWindowSize: 10
+#        minimumNumberOfCalls: 5
+#        permittedNumberOfCallsInHalfOpenState: 3
+#        automaticTransitionFromOpenToHalfOpenEnabled: true
+#        waitDurationInOpenState: 10s
+#        failureRateThreshold: 50
+#
+#      paymentsServiceCircuitBreaker:
+#        registerHealthIndicator: true
+#        slidingWindowSize: 10
+#        minimumNumberOfCalls: 5
+#        permittedNumberOfCallsInHalfOpenState: 3
+#        automaticTransitionFromOpenToHalfOpenEnabled: true
+#        waitDurationInOpenState: 10s
+#        failureRateThreshold: 50
+
+  timelimiter:
+    instances:
+      authServiceCircuitBreaker:
+        timeoutDuration: 5s
+      usersServiceCircuitBreaker:
+        timeoutDuration: 5s
+      ordersServiceCircuitBreaker:
+        timeoutDuration: 5s
+      paymentsServiceCircuitBreaker:
+        timeoutDuration: 5s
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,gateway,circuitbreakers,circuitbreakerevents
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
+  health:
+    circuitbreakers:
+      enabled: true
+
+# Logging
+logging:
+  level:
+    org.springframework.cloud.gateway: ${LOGGING_LEVEL_GATEWAY:DEBUG}
+    com.softwareinsight.Gateway: ${LOGGING_LEVEL_APP:DEBUG}
+    reactor.netty.http.client: ${LOGGING_LEVEL_REACTOR:DEBUG}

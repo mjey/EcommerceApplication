@@ -1,0 +1,71 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: gateway-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"
+    environment:
+      # Spring Configuration
+      SPRING_APPLICATION_NAME: ${SPRING_APPLICATION_NAME:-Gateway}
+      SERVER_PORT: 8080
+      
+      # Redis Configuration
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      
+      # Eureka Configuration
+      EUREKA_CLIENT_ENABLED: true
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: true
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: true
+      EUREKA_CLIENT_FETCH_REGISTRY: true
+      
+      # JWT Configuration
+      JWT_SECRET: ${JWT_SECRET:-Hallo123!}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+      
+      # Actuator Configuration
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,metrics,prometheus,gateway,circuitbreakers,circuitbreakerevents
+      MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS: always
+      MANAGEMENT_ENDPOINT_GATEWAY_ENABLED: true
+      
+      # Logging
+      LOGGING_LEVEL_GATEWAY: ${LOG_LEVEL_GATEWAY:-DEBUG}
+      LOGGING_LEVEL_APP: ${LOG_LEVEL_APP:-DEBUG}
+      LOGGING_LEVEL_REACTOR: ${LOG_LEVEL_REACTOR:-DEBUG}
+      
+      # Java Options
+      JAVA_OPTS: ${JAVA_OPTS:--Xmx512m -Xms256m}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+networks:
+  ecommerce-network:
+    name: servicediscovery_ecommerce-network
+    external: true

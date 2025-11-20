@@ -14,10 +14,6 @@ import java.util.function.Function;
 
 /**
  * JWT Utility for Gateway
- *
- * Validates JWT tokens and extracts claims
- * Should match the JwtService implementation in AuthService
- * 
  * Design Pattern: Utility Pattern
  */
 @Component
