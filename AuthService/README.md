@@ -27,6 +27,37 @@ docker-compose down
 - **PostgreSQL**: localhost:5432
 - **Kafka**: localhost:9092
 
+
+## API Examples
+
+```bash
+# 1. Register a new user
+curl -X POST http://localhost:8081/api/v1/auth/register \
+   -H "Content-Type: application/json" \
+   -d '{
+      "username": "john_doe",
+      "email": "john@example.com",
+      "password": "password123",
+      "firstName": "John",
+      "lastName": "Doe"
+   }'
+
+# 2. Login
+curl -X POST http://localhost:8081/api/v1/auth/login \
+   -H "Content-Type: application/json" \
+   -d '{
+      "usernameOrEmail": "john_doe",
+      "password": "password123"
+   }'
+
+# 3. Validate token (use token from login response)
+curl -X POST http://localhost:8081/api/v1/auth/validate \
+   -H "Content-Type: application/json" \
+   -d '{
+      "token": "YOUR_JWT_TOKEN_HERE"
+   }'
+```
+
 ## Building the Image
 
 ### Build locally
